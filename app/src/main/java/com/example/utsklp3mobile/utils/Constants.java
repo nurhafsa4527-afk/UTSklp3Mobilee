@@ -15,6 +15,7 @@ public class Constants {
     public static final String EXTRA_BATTLE_MODE = "BATTLE_MODE";
     public static final String EXTRA_QUESTIONS_JSON = "QUESTIONS_JSON";
     public static final String EXTRA_ROOM_ID = "ROOM_ID";
+    public static final String EXTRA_ENEMY_NAME = "ENEMY_NAME";
 
     public static final String MODE_RANKED = "RANKED";
     public static final String MODE_AI = "AI_CHALLENGE";

@@ -26,6 +26,7 @@ public class BattleViewModel extends AndroidViewModel {
     private String currentUserName = "";
     private String enemyName = "";
     private String selectedMatkul = "";
+    private String battleMode = "RANKED";
     private int correctAnswers = 0;
 
     public BattleViewModel(@NonNull Application application) {
@@ -55,10 +56,11 @@ public class BattleViewModel extends AndroidViewModel {
     }
 
     // ========== Setup Battle ==========
-    public void startBattle(String userName, String enemy, String mataKuliah) {
+    public void startBattle(String userName, String enemy, String mataKuliah, String mode) {
         this.currentUserName = userName;
         this.enemyName = enemy;
         this.selectedMatkul = mataKuliah;
+        this.battleMode = mode != null ? mode : "RANKED";
         this.correctAnswers = 0;
 
         playerHp.setValue(100);
@@ -109,6 +111,9 @@ public class BattleViewModel extends AndroidViewModel {
     }
 
     private int calculatePoin(boolean isWin) {
+        if ("AI_CHALLENGE".equalsIgnoreCase(battleMode)) {
+            return 0; // AI Challenge tidak mendapat poin (buat latihan saja)
+        }
         int poin = 0;
         if (isWin) {
             poin += 30; // bonus menang

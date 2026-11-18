@@ -45,4 +45,8 @@ public class UserRepository {
     public boolean isFriend(String currentUserName, String friendName) {
         return dbHelper.isFriend(currentUserName, friendName);
     }
+
+    public List<String> getFriendNames(String currentUserName) {
+        return dbHelper.getFriendNames(currentUserName);
+    }
 }

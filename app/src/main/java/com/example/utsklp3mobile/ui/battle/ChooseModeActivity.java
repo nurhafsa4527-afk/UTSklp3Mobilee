@@ -7,9 +7,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
+import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -19,14 +22,17 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.utsklp3mobile.R;
 import com.example.utsklp3mobile.data.model.Question;
+import com.example.utsklp3mobile.data.model.User;
 import com.example.utsklp3mobile.data.remote.GroqQuizClient;
 import com.example.utsklp3mobile.data.repository.BattleRepository;
+import com.example.utsklp3mobile.data.repository.UserRepository;
 import com.example.utsklp3mobile.utils.Constants;
 import com.example.utsklp3mobile.utils.MaterialExtractor;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.gson.Gson;
 
+import java.io.IOException;
 import java.security.MessageDigest;
 import java.util.List;
 import java.util.UUID;
@@ -44,6 +50,7 @@ public class ChooseModeActivity extends AppCompatActivity {
 
     private String currentUserName = "Pemain";
     private String selectedMatkul = "Pemrograman Mobile";
+    private String selectedEnemy = null;
 
     /** Mode yang sedang menunggu hasil File Picker. */
     private String pendingMode = null;
@@ -91,10 +98,11 @@ public class ChooseModeActivity extends AppCompatActivity {
         btnPickFileRanked = findViewById(R.id.btnPickFileRanked);
         btnPickFileAi = findViewById(R.id.btnPickFileAi);
 
-        tvSelectedMatkul.setText("Mata Kuliah: " + selectedMatkul);
+        tvSelectedMatkul.setText("Mata Kuliah: " + selectedMatkul + " (Ketuk untuk ubah)");
+        tvSelectedMatkul.setOnClickListener(v -> showMatkulDropdownDialog());
         btnBack.setOnClickListener(v -> finish());
 
-        Runnable ranked = () -> openFilePicker(Constants.MODE_RANKED);
+        Runnable ranked = () -> promptChooseFriendAndPickFile(Constants.MODE_RANKED);
         Runnable ai = () -> openFilePicker(Constants.MODE_AI);
 
         btnPickFileRanked.setOnClickListener(v -> ranked.run());
@@ -107,6 +115,69 @@ public class ChooseModeActivity extends AppCompatActivity {
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putString(STATE_PENDING_MODE, pendingMode);
+    }
+
+    // ------------------------------------------------------------ Pilih Teman (Quick Match & Dropdown Teman)
+
+    private void promptChooseFriendAndPickFile(String mode) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_choose_ranked_opponent, null);
+        builder.setView(dialogView);
+        AlertDialog dialog = builder.create();
+
+        View cardQuickMatch = dialogView.findViewById(R.id.cardQuickMatch);
+        Spinner spinnerFriends = dialogView.findViewById(R.id.spinnerFriends);
+        MaterialButton btnBattleFriend = dialogView.findViewById(R.id.btnBattleFriend);
+
+        // 1. QUICK MATCH: Langsung bertanding tanpa pilih PDF (pakai soal default sesuai matkul)
+        cardQuickMatch.setOnClickListener(v -> {
+            String[] randomQuickNames = {"Andi_Fast", "Rizki_Pro", "Dimas_Rank", "Fajar_Arena", "Bayu_Blitz"};
+            selectedEnemy = randomQuickNames[(int) (Math.random() * randomQuickNames.length)];
+            Toast.makeText(this, "Quick Match! Lawan: " + selectedEnemy, Toast.LENGTH_SHORT).show();
+            dialog.dismiss();
+
+            Intent intent = new Intent(this, BattleActivity.class);
+            intent.putExtra(Constants.EXTRA_USER_NAME, currentUserName);
+            intent.putExtra(Constants.EXTRA_MATKUL, selectedMatkul);
+            intent.putExtra(Constants.EXTRA_BATTLE_MODE, mode);
+            intent.putExtra(Constants.EXTRA_ENEMY_NAME, selectedEnemy);
+            startActivity(intent);
+        });
+
+        UserRepository userRepo = new UserRepository(this);
+        List<String> friends = userRepo.getFriendNames(currentUserName);
+        if (friends.isEmpty()) {
+            List<User> allUsers = userRepo.searchUsersByNickname("", currentUserName);
+            for (User u : allUsers) {
+                if (u.getNama() != null && !u.getNama().equalsIgnoreCase(currentUserName)) {
+                    friends.add(u.getNama());
+                }
+            }
+        }
+        if (friends.isEmpty()) {
+            friends.add("Rina");
+            friends.add("Budi");
+            friends.add("Andi");
+        }
+
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, friends);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerFriends.setAdapter(adapter);
+
+        // 2. PILIH TEMAN: Wajib pilih file PDF/PPTX untuk generate soal melawan teman
+        btnBattleFriend.setOnClickListener(v -> {
+            Object selected = spinnerFriends.getSelectedItem();
+            if (selected != null) {
+                selectedEnemy = selected.toString();
+                Toast.makeText(this, "Lawan dipilih: " + selectedEnemy + ". Silakan pilih file materi.", Toast.LENGTH_LONG).show();
+                dialog.dismiss();
+                openFilePicker(mode);
+            } else {
+                Toast.makeText(this, "Pilih teman terlebih dahulu", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        dialog.show();
     }
 
     // ------------------------------------------------------------ File Picker
@@ -135,15 +206,23 @@ public class ChooseModeActivity extends AppCompatActivity {
 
     private void startGeneration(String mode, Uri uri) {
         isGenerating = true;
-        setFileStatus(mode, "📄 " + MaterialExtractor.getFileName(getContentResolver(), uri));
+        String fileName = MaterialExtractor.getFileName(getContentResolver(), uri);
+        setFileStatus(mode, "📄 " + fileName);
         showLoading("Membaca materi...");
+
+        // Untuk PDF / PPT, set mata kuliah menjadi CUSTOM (atau biarkan pilihan user dari dropdown)
+        mainHandler.post(() -> {
+            if ("Pemrograman Mobile".equalsIgnoreCase(selectedMatkul)) {
+                selectedMatkul = "CUSTOM";
+                tvSelectedMatkul.setText("Mata Kuliah: " + selectedMatkul + " (Ketuk untuk ubah)");
+            }
+        });
 
         executor.execute(() -> {
             try {
                 MaterialExtractor.Material material = MaterialExtractor.read(getApplicationContext(), uri);
 
                 BattleRepository repo = new BattleRepository(getApplicationContext());
-                // Materi + mata kuliah yang sama memakai soal yang sudah pernah dibuat (hemat kuota AI)
                 String cacheKey = "cache_" + sha256(selectedMatkul + "|" + material.text);
                 String json = repo.getRoomQuestionsJson(cacheKey);
 
@@ -156,7 +235,6 @@ public class ChooseModeActivity extends AppCompatActivity {
 
                 String roomId = null;
                 if (Constants.MODE_RANKED.equals(mode)) {
-                    // Satu paket soal disimpan di "room" supaya kedua pemain memakai soal yang persis sama
                     roomId = UUID.randomUUID().toString();
                     repo.saveRoom(roomId, currentUserName, selectedMatkul, json);
                 }
@@ -166,7 +244,7 @@ public class ChooseModeActivity extends AppCompatActivity {
                 mainHandler.post(() -> onGenerationSuccess(mode, finalJson, finalRoomId));
             } catch (GroqQuizClient.QuizException e) {
                 mainHandler.post(() -> onGenerationFailed(mode, e.getMessage()));
-            } catch (java.io.IOException e) {
+            } catch (IOException e) {
                 mainHandler.post(() -> onGenerationFailed(mode, e.getMessage()));
             } catch (Exception e) {
                 mainHandler.post(() -> onGenerationFailed(mode, "Terjadi kesalahan: " + e.getMessage()));
@@ -196,8 +274,10 @@ public class ChooseModeActivity extends AppCompatActivity {
         intent.putExtra(Constants.EXTRA_MATKUL, selectedMatkul);
         intent.putExtra(Constants.EXTRA_BATTLE_MODE, mode);
         intent.putExtra(Constants.EXTRA_QUESTIONS_JSON, questionsJson);
+        if (selectedEnemy != null) {
+            intent.putExtra(Constants.EXTRA_ENEMY_NAME, selectedEnemy);
+        }
         if (roomId != null) intent.putExtra(Constants.EXTRA_ROOM_ID, roomId);
-        // Activity ini sengaja tidak di-finish: jika battle ditutup, pengguna kembali ke pilihan mode.
         startActivity(intent);
     }
 
@@ -212,11 +292,13 @@ public class ChooseModeActivity extends AppCompatActivity {
                 .setMessage(message != null ? message : "Terjadi kesalahan.")
                 .setPositiveButton("OK", null)
                 .setNegativeButton("Main soal bawaan", (d, w) -> {
-                    // Tanpa QUESTIONS_JSON, BattleActivity memakai soal bawaan mata kuliah
                     Intent intent = new Intent(this, BattleActivity.class);
                     intent.putExtra(Constants.EXTRA_USER_NAME, currentUserName);
                     intent.putExtra(Constants.EXTRA_MATKUL, selectedMatkul);
                     intent.putExtra(Constants.EXTRA_BATTLE_MODE, mode);
+                    if (selectedEnemy != null) {
+                        intent.putExtra(Constants.EXTRA_ENEMY_NAME, selectedEnemy);
+                    }
                     startActivity(intent);
                 })
                 .show();
@@ -225,6 +307,36 @@ public class ChooseModeActivity extends AppCompatActivity {
     private void setFileStatus(String mode, String text) {
         TextView target = Constants.MODE_RANKED.equals(mode) ? tvRankedFileStatus : tvAiFileStatus;
         if (target != null) target.setText(text);
+    }
+
+    // ------------------------------------------------------------ Dropdown Pilihan Mata Kuliah
+
+    private void showMatkulDropdownDialog() {
+        String[] matkulList = new String[]{
+                "Pemrograman Mobile",
+                "Jaringan Komputer",
+                "Sistem Operasi",
+                "Basis Data"
+        };
+
+        int currentIndex = 0;
+        for (int i = 0; i < matkulList.length; i++) {
+            if (matkulList[i].equalsIgnoreCase(selectedMatkul)) {
+                currentIndex = i;
+                break;
+            }
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("Pilih Mata Kuliah")
+                .setSingleChoiceItems(matkulList, currentIndex, (dialog, which) -> {
+                    selectedMatkul = matkulList[which];
+                    tvSelectedMatkul.setText("Mata Kuliah: " + selectedMatkul + " (Ketuk untuk ubah)");
+                    dialog.dismiss();
+                    Toast.makeText(this, "Mata Kuliah diset ke: " + selectedMatkul, Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Batal", null)
+                .show();
     }
 
     // ------------------------------------------------------------ Loading dialog

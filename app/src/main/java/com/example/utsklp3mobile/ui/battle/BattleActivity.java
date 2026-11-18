@@ -80,7 +80,7 @@ public class BattleActivity extends AppCompatActivity {
         setupQuestions();
 
         battleViewModel = new ViewModelProvider(this).get(BattleViewModel.class);
-        battleViewModel.startBattle(currentUserName, enemyName, selectedMatkul);
+        battleViewModel.startBattle(currentUserName, enemyName, selectedMatkul, battleMode);
 
         observeViewModel();
 
@@ -109,6 +109,12 @@ public class BattleActivity extends AppCompatActivity {
     }
 
     private void setupEnemyName() {
+        String passedEnemy = getIntent().getStringExtra(Constants.EXTRA_ENEMY_NAME);
+        if (passedEnemy != null && !passedEnemy.trim().isEmpty()) {
+            enemyName = passedEnemy;
+            return;
+        }
+
         if ("AI_CHALLENGE".equalsIgnoreCase(battleMode)) {
             String[] aiNames = new String[]{"Bot123", "AI-Master", "QuizBot3000", "CyberBot-X", "RoboQuiz"};
             int randomIndex = (int) (Math.random() * aiNames.length);
@@ -403,7 +409,11 @@ public class BattleActivity extends AppCompatActivity {
                     tvResultStatus.setTextColor(Color.parseColor("#EF4444"));
                 }
 
-                tvResultPoints.setText("Poin Didapat: +" + (poin != null ? poin : 0));
+                if ("AI_CHALLENGE".equalsIgnoreCase(battleMode)) {
+                    tvResultPoints.setText("Mode Latihan (0 Poin)");
+                } else {
+                    tvResultPoints.setText("Poin Didapat: +" + (poin != null ? poin : 0));
+                }
             }
         });
     }

@@ -17,7 +17,6 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.example.utsklp3mobile.R;
-import com.example.utsklp3mobile.ui.battle.BattleActivity;
 import com.example.utsklp3mobile.ui.battle.ChooseModeActivity;
 import com.example.utsklp3mobile.ui.friend.SearchFriendActivity;
 import com.example.utsklp3mobile.ui.main.MainActivity;
@@ -127,20 +126,14 @@ public class HomeFragment extends Fragment {
             btnPlayNow.setOnClickListener(openChooseModeListener);
         }
         if (cardRankedBattle != null) {
-            cardRankedBattle.setOnClickListener(v -> launchBattle("RANKED"));
+            cardRankedBattle.setOnClickListener(openChooseModeListener);
         }
         if (cardAiQuiz != null) {
-            cardAiQuiz.setOnClickListener(v -> launchBattle("AI_CHALLENGE"));
+            cardAiQuiz.setOnClickListener(openChooseModeListener);
         }
     }
 
-    private void launchBattle(String mode) {
-        Intent intent = new Intent(requireContext(), BattleActivity.class);
-        intent.putExtra("USER_NAME", currentUserName);
-        intent.putExtra("MATKUL", selectedMatkul);
-        intent.putExtra("BATTLE_MODE", mode);
-        startActivity(intent);
-    }
+
 
     private void setupMatkulSelection() {
         if (tvMatkulMobile != null) {

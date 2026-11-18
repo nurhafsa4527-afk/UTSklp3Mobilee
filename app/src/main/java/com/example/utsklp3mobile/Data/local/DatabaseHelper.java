@@ -421,4 +421,19 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         if (cursor != null) cursor.close();
         return exists;
     }
+
+    public List<String> getFriendNames(String currentUserName) {
+        List<String> list = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(TABLE_FRIENDS, new String[]{COL_FRIEND_NAME},
+                "LOWER(" + COL_FRIEND_USER_NAME + ") = LOWER(?)",
+                new String[]{currentUserName}, null, null, null);
+        if (cursor != null) {
+            while (cursor.moveToNext()) {
+                list.add(cursor.getString(0));
+            }
+            cursor.close();
+        }
+        return list;
+    }
 }

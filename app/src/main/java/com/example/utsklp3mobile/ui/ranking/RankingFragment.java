@@ -1,11 +1,14 @@
 package com.example.utsklp3mobile.ui.ranking;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -16,7 +19,9 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.utsklp3mobile.R;
 import com.example.utsklp3mobile.data.model.Ranking;
-import com.example.utsklp3mobile.ui.battle.BattleActivity;
+import com.example.utsklp3mobile.ui.battle.ChooseModeActivity;
+import com.example.utsklp3mobile.ui.main.MainActivity;
+import com.example.utsklp3mobile.utils.Constants;
 import com.example.utsklp3mobile.viewmodel.RankingViewModel;
 
 import java.util.ArrayList;
@@ -48,6 +53,17 @@ public class RankingFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // Header Search & Info buttons
+        View btnHeaderSearch = view.findViewById(R.id.btnHeaderSearch);
+        View btnHeaderInfo = view.findViewById(R.id.btnHeaderInfo);
+
+        if (btnHeaderSearch != null) {
+            btnHeaderSearch.setOnClickListener(v -> showSearchDialog());
+        }
+        if (btnHeaderInfo != null) {
+            btnHeaderInfo.setOnClickListener(v -> showInfoDialog());
+        }
+
         // Inisialisasi komponen Filter
         TextView btnTerbaru = view.findViewById(R.id.btnFilterTerbaru);
         TextView btnSemua = view.findViewById(R.id.btnFilterSemua);
@@ -74,7 +90,10 @@ public class RankingFragment extends Fragment {
         View btnStartBattle = view.findViewById(R.id.btnStartBattle);
         if (btnStartBattle != null) {
             btnStartBattle.setOnClickListener(v -> {
-                Intent intent = new Intent(requireContext(), BattleActivity.class);
+                Intent intent = new Intent(requireContext(), ChooseModeActivity.class);
+                if (getActivity() instanceof MainActivity) {
+                    intent.putExtra(Constants.EXTRA_USER_NAME, ((MainActivity) getActivity()).getUserName());
+                }
                 startActivity(intent);
             });
         }
@@ -114,6 +133,75 @@ public class RankingFragment extends Fragment {
                 updateTerbaruRanking(new ArrayList<>());
             }
         });
+    }
+
+    private void showSearchDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+        builder.setTitle("🔍 Cari Pemain di Leaderboard");
+
+        final EditText input = new EditText(requireContext());
+        input.setHint("Masukkan nama pemain...");
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        input.setPadding(pad, pad, pad, pad);
+        builder.setView(input);
+
+        builder.setPositiveButton("Cari", (dialog, which) -> {
+            String query = input.getText().toString().trim();
+            if (!query.isEmpty()) {
+                searchPlayerInLeaderboard(query);
+            }
+        });
+        builder.setNegativeButton("Batal", null);
+        builder.show();
+    }
+
+    private void searchPlayerInLeaderboard(String query) {
+        List<Ranking> currentList = rankingViewModel.getRankingList().getValue();
+        if (currentList == null || currentList.isEmpty()) {
+            Toast.makeText(requireContext(), "Leaderboard kosong", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Ranking found = null;
+        int rankPos = -1;
+        for (int i = 0; i < currentList.size(); i++) {
+            Ranking r = currentList.get(i);
+            if (r.getNama() != null && r.getNama().toLowerCase().contains(query.toLowerCase())) {
+                found = r;
+                rankPos = i + 1;
+                break;
+            }
+        }
+
+        if (found != null) {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Hasil Pencarian")
+                    .setMessage("🏆 Peringkat #" + rankPos + "\n👤 Nama: " + found.getNama() + "\n⭐ Total Poin: " + found.getTotalPoin() + " Pts\n🎯 Menang: " + found.getJumlahMenang())
+                    .setPositiveButton("OK", null)
+                    .show();
+        } else {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Tidak Ditemukan")
+                    .setMessage("Pemain dengan nama \"" + query + "\" tidak ditemukan di leaderboard.")
+                    .setPositiveButton("OK", null)
+                    .show();
+        }
+    }
+
+    private void showInfoDialog() {
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Informasi Leaderboard & Poin")
+                .setMessage("Selamat datang di Quiz Battle Arena (QBA)!\n\n" +
+                        "🏆 Cara Mendapat Poin:\n" +
+                        "Menang Battle: +30 Poin\n" +
+                        "Partisipasi Kalah: +5 Poin\n" +
+                        "Jawaban Benar: +2 Poin per soal\n\n" +
+                        "🤖 AI Challenge:\n" +
+                        "Mode latihan melawan bot (0 Poin / tidak menambah poin rank).\n\n" +
+                        "⚔️ Ranked Arena:\n" +
+                        "Tantang teman atau quick match dengan materi PDF/PPTX untuk mengumpulkan poin tertinggi!")
+                .setPositiveButton("Mengerti", null)
+                .show();
     }
 
     @Override
@@ -185,7 +273,7 @@ public class RankingFragment extends Fragment {
                 if (rvRanking != null) rvRanking.setVisibility(View.VISIBLE);
                 if (tvEmptyRankingLainnya != null) tvEmptyRankingLainnya.setVisibility(View.GONE);
             } else {
-                // Jika tidak ada pemain rank 4 ke atas
+                // Skala kecil
                 rankingAdapter.setRankingList(new ArrayList<>(), 4);
                 if (rvRanking != null) rvRanking.setVisibility(View.GONE);
                 if (tvEmptyRankingLainnya != null) tvEmptyRankingLainnya.setVisibility(View.VISIBLE);
