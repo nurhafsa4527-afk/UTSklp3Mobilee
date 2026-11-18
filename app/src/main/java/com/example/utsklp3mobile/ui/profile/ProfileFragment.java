@@ -1,10 +1,13 @@
 package com.example.utsklp3mobile.ui.profile;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
+import com.google.android.material.button.MaterialButton;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -14,6 +17,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.utsklp3mobile.R;
+import com.example.utsklp3mobile.data.local.SessionManager;
+import com.example.utsklp3mobile.ui.auth.LoginActivity;
 import com.example.utsklp3mobile.ui.main.MainActivity;
 import com.example.utsklp3mobile.viewmodel.ProfileViewModel;
 
@@ -54,6 +59,17 @@ public class ProfileFragment extends Fragment {
                 if (getActivity() instanceof MainActivity) {
                     ((MainActivity) getActivity()).selectTab(1); // Posisi 1 adalah Ranking/Leaderboard
                 }
+            });
+        }
+
+        MaterialButton btnLogout = view.findViewById(R.id.btnLogout);
+        if (btnLogout != null) {
+            btnLogout.setOnClickListener(v -> {
+                // Hapus sesi saja; akun & riwayat tetap di database sehingga bisa login lagi
+                new SessionManager(requireContext()).logoutUser();
+                Intent intent = new Intent(requireContext(), LoginActivity.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
             });
         }
 

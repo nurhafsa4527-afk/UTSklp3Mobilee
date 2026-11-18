@@ -11,11 +11,19 @@ public class UserRepository {
     private final DatabaseHelper dbHelper;
 
     public UserRepository(Context context) {
-        dbHelper = new DatabaseHelper(context);
+        dbHelper = DatabaseHelper.getInstance(context);
     }
 
     public long insertUser(String nama) {
         return dbHelper.insertUser(nama);
+    }
+
+    public long registerUser(String nama, String email, String phone, String password) {
+        return dbHelper.registerUser(nama, email, phone, password);
+    }
+
+    public DatabaseHelper.AuthResult authenticate(String identifier, String password) {
+        return dbHelper.authenticate(identifier, password);
     }
 
     public User getUserByName(String nama) {

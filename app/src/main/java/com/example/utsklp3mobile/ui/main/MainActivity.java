@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.utsklp3mobile.R;
+import com.example.utsklp3mobile.data.local.SessionManager;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 
@@ -26,6 +27,10 @@ public class MainActivity extends AppCompatActivity {
 
         if (getIntent() != null && getIntent().hasExtra("USER_NAME")) {
             userName = getIntent().getStringExtra("USER_NAME");
+        }
+        if (userName == null || userName.isEmpty()) {
+            // Proses sempat dimatikan sistem / intent tidak membawa nama: pakai sesi tersimpan
+            userName = new SessionManager(this).getUsername();
         }
 
         tabLayout = findViewById(R.id.tabLayout);

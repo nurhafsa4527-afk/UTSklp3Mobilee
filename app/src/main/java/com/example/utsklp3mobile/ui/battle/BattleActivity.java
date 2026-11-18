@@ -1,5 +1,6 @@
 package com.example.utsklp3mobile.ui.battle;
 
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
@@ -14,6 +15,10 @@ import androidx.lifecycle.ViewModelProvider;
 
 import com.example.utsklp3mobile.R;
 import com.example.utsklp3mobile.data.model.Question;
+import com.example.utsklp3mobile.data.repository.BattleRepository;
+import com.example.utsklp3mobile.utils.Constants;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.example.utsklp3mobile.viewmodel.BattleViewModel;
 import com.google.android.material.button.MaterialButton;
 
@@ -58,16 +63,14 @@ public class BattleActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_battle);
 
-        if (getIntent() != null) {
-            if (getIntent().hasExtra("USER_NAME")) {
-                currentUserName = getIntent().getStringExtra("USER_NAME");
-            }
-            if (getIntent().hasExtra("MATKUL")) {
-                selectedMatkul = getIntent().getStringExtra("MATKUL");
-            }
-            if (getIntent().hasExtra("BATTLE_MODE")) {
-                battleMode = getIntent().getStringExtra("BATTLE_MODE");
-            }
+        Intent in = getIntent();
+        if (in != null) {
+            String name = in.getStringExtra(Constants.EXTRA_USER_NAME);
+            if (name != null && !name.isEmpty()) currentUserName = name;
+            String matkul = in.getStringExtra(Constants.EXTRA_MATKUL);
+            if (matkul != null && !matkul.isEmpty()) selectedMatkul = matkul;
+            String mode = in.getStringExtra(Constants.EXTRA_BATTLE_MODE);
+            if (mode != null && !mode.isEmpty()) battleMode = mode;
         }
 
         // Tentukan Nama Lawan Berdasarkan Mode
@@ -173,7 +176,43 @@ public class BattleActivity extends AppCompatActivity {
         }
     }
 
+    /** Prioritas: soal AI dari Intent -> soal AI dari room database -> soal bawaan. */
     private void setupQuestions() {
+        List<Question> loaded = parseQuestions(getIntent().getStringExtra(Constants.EXTRA_QUESTIONS_JSON));
+
+        if (loaded.isEmpty()) {
+            String roomId = getIntent().getStringExtra(Constants.EXTRA_ROOM_ID);
+            if (roomId != null) {
+                loaded = parseQuestions(new BattleRepository(getApplicationContext()).getRoomQuestionsJson(roomId));
+            }
+        }
+
+        if (!loaded.isEmpty()) {
+            questionList = loaded;
+        } else {
+            loadDefaultQuestions();
+        }
+    }
+
+    /** Parse JSON -> List<Question> dan buang soal yang tidak lengkap; tidak pernah melempar exception. */
+    private List<Question> parseQuestions(String json) {
+        List<Question> result = new ArrayList<>();
+        if (json == null || json.trim().isEmpty()) return result;
+        try {
+            List<Question> raw = new Gson().fromJson(json, new TypeToken<List<Question>>() {}.getType());
+            if (raw == null) return result;
+            for (Question q : raw) {
+                if (q != null && q.getSoal() != null && q.getPilihanA() != null && q.getPilihanB() != null
+                        && q.getPilihanC() != null && q.getPilihanD() != null && q.getJawabanBenar() != null) {
+                    result.add(q);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return result;
+    }
+
+    private void loadDefaultQuestions() {
         questionList.clear();
 
         if ("Jaringan Komputer".equalsIgnoreCase(selectedMatkul)) {
@@ -288,7 +327,7 @@ public class BattleActivity extends AppCompatActivity {
     }
 
     private void selectAnswer(String optionKey, LinearLayout layout, TextView badge, TextView text) {
-        if (isAnswered) return;
+        if (isAnswered || currentQuestionIndex >= questionList.size()) return;
         isAnswered = true;
         selectedAnswer = optionKey;
 
@@ -319,7 +358,8 @@ public class BattleActivity extends AppCompatActivity {
     }
 
     private void highlightCorrectAnswer(String correctOptionKey) {
-        switch (correctOptionKey) {
+        if (correctOptionKey == null) return;
+        switch (correctOptionKey.trim().toUpperCase()) {
             case "A":
                 layoutOptA.setBackgroundResource(R.drawable.bg_option_selected_correct);
                 break;

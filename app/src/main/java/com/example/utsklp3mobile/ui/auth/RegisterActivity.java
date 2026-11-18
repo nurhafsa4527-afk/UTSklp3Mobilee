@@ -11,6 +11,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.utsklp3mobile.R;
+import com.example.utsklp3mobile.data.local.SessionManager;
 import com.example.utsklp3mobile.data.repository.UserRepository;
 import com.example.utsklp3mobile.ui.main.MainActivity;
 import com.google.android.material.textfield.TextInputEditText;
@@ -21,7 +22,9 @@ public class RegisterActivity extends AppCompatActivity {
     private CheckBox cbTerms;
     private Button btnSignUp, btnGoogleSignUp;
     private TextView tvLoginRedirect;
+
     private UserRepository userRepository;
+    private SessionManager sessionManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,6 +32,7 @@ public class RegisterActivity extends AppCompatActivity {
         setContentView(R.layout.activity_register);
 
         userRepository = new UserRepository(this);
+        sessionManager = new SessionManager(this);
 
         etFullName = findViewById(R.id.etFullName);
         etEmail = findViewById(R.id.etEmail);
@@ -95,15 +99,16 @@ public class RegisterActivity extends AppCompatActivity {
             return;
         }
 
-        // Cek apakah username/nama sudah pernah terdaftar di SQLite
-        if (userRepository.getUserByName(fullName) != null) {
-            etFullName.setError("Nama pengguna sudah terdaftar! Silakan gunakan nama lain atau masuk.");
+        // Simpan akun baru ke SQLite (password di-hash). -1 berarti nama/email sudah dipakai.
+        long newId = userRepository.registerUser(fullName, email, phone, password);
+        if (newId == -1) {
+            etFullName.setError("Nama pengguna atau email sudah terdaftar. Gunakan yang lain atau masuk.");
             etFullName.requestFocus();
             return;
         }
 
-        // Simpan user baru ke database
-        userRepository.insertUser(fullName);
+        // Buat sesi login
+        sessionManager.createLoginSession(fullName);
 
         Toast.makeText(this, "Akun berhasil dibuat! Selamat datang " + fullName, Toast.LENGTH_SHORT).show();
 

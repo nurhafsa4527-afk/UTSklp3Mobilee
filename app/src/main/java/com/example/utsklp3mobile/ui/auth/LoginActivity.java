@@ -10,6 +10,8 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.utsklp3mobile.R;
+import com.example.utsklp3mobile.data.local.DatabaseHelper;
+import com.example.utsklp3mobile.data.local.SessionManager;
 import com.example.utsklp3mobile.data.model.User;
 import com.example.utsklp3mobile.data.repository.UserRepository;
 import com.example.utsklp3mobile.ui.main.MainActivity;
@@ -20,11 +22,25 @@ public class LoginActivity extends AppCompatActivity {
     private TextInputEditText etUsername, etPassword;
     private Button btnLogin, btnGoogleLogin;
     private TextView tvRegister;
+
     private UserRepository userRepository;
+    private SessionManager sessionManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        sessionManager = new SessionManager(this);
+
+        // Jika sudah login, langsung alihkan ke MainActivity
+        if (sessionManager.isLoggedIn()) {
+            Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+            intent.putExtra("USER_NAME", sessionManager.getUsername());
+            startActivity(intent);
+            finish();
+            return;
+        }
+
         setContentView(R.layout.activity_login);
 
         userRepository = new UserRepository(this);
@@ -63,21 +79,29 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
-        // Ekstrak nama pengguna (sebelum @ jika berupa email)
-        String userName = username.contains("@") ? username.split("@")[0] : username;
-
-        // Pengecekan pendaftaran akun di database
-        User existingUser = userRepository.getUserByName(userName);
-        if (existingUser == null) {
-            existingUser = userRepository.getUserByName(username);
+        // Validasi ke database: nama pengguna atau email + kata sandi
+        DatabaseHelper.AuthResult result = userRepository.authenticate(username, password);
+        if (result.status == DatabaseHelper.AUTH_NOT_FOUND && username.contains("@")) {
+            // Kompatibilitas akun lama yang masuk memakai bagian depan email
+            result = userRepository.authenticate(username.split("@")[0], password);
         }
 
-        if (existingUser == null) {
-            Toast.makeText(this, "Akun belum terdaftar! Silakan daftar akun terlebih dahulu.", Toast.LENGTH_LONG).show();
+        if (result.status == DatabaseHelper.AUTH_NOT_FOUND) {
             etUsername.setError("Akun tidak ditemukan. Silakan daftar dulu.");
             etUsername.requestFocus();
             return;
         }
+
+        if (result.status == DatabaseHelper.AUTH_WRONG_PASSWORD || result.user == null) {
+            etPassword.setError("Kata sandi salah");
+            etPassword.requestFocus();
+            return;
+        }
+
+        User existingUser = result.user;
+
+        // Simpan sesi login ke SharedPreferences
+        sessionManager.createLoginSession(existingUser.getNama());
 
         Toast.makeText(this, "Login berhasil! Selamat datang " + existingUser.getNama(), Toast.LENGTH_SHORT).show();
 

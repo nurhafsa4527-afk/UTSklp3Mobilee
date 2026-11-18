@@ -10,7 +10,7 @@ public class BattleRepository {
     private final DatabaseHelper dbHelper;
 
     public BattleRepository(Context context) {
-        dbHelper = new DatabaseHelper(context);
+        dbHelper = DatabaseHelper.getInstance(context);
     }
 
     public void insertHistory(String userName, String lawan, String mataKuliah, String hasil, int poin, String tanggal) {
@@ -27,5 +27,13 @@ public class BattleRepository {
 
     public void updateUserAfterBattle(String nama, boolean isWin, int poinTambahan) {
         dbHelper.updateUserAfterBattle(nama, isWin, poinTambahan);
+    }
+
+    public void saveRoom(String roomId, String creator, String mataKuliah, String questionsJson) {
+        dbHelper.saveRoom(roomId, creator, mataKuliah, questionsJson);
+    }
+
+    public String getRoomQuestionsJson(String roomId) {
+        return dbHelper.getRoomQuestionsJson(roomId);
     }
 }

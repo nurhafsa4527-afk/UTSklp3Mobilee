@@ -10,7 +10,7 @@ public class RankingRepository {
     private final DatabaseHelper dbHelper;
 
     public RankingRepository(Context context) {
-        dbHelper = new DatabaseHelper(context);
+        dbHelper = DatabaseHelper.getInstance(context);
     }
 
     public List<Ranking> getAllRanking() {
